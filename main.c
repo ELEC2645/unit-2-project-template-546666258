@@ -5,39 +5,65 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <math.h>
+
 #include "funcs.h"
 
-/* Prototypes mirroring the C++ version */
-static void main_menu(void);            /* runs in the main loop */
-static void print_main_menu(void);      /* output the main menu description */
-static int  get_user_input(void);       /* get a valid integer menu choice */
-static void select_menu_item(int input);/* run code based on user's choice */
-static void go_back_to_main(void);      /* wait for 'b'/'B' to continue */
-static int  is_integer(const char *s);  /* validate integer string */
+//Basketball System Includes
+#define MAX_PLAYERS 20
+#define MAX_NAME_LEN 50
 
+typedef struct {
+    int number;
+    char name[MAX_NAME_LEN];
+    int games;
+    int totalPoints;
+    int totalRebounds;
+    int totalAssists;
+    int totalSteals;
+    int totalBlocks;
+} Player;
+
+Player players[MAX_PLAYERS];
+int playerCount = 0;
+
+//Basketball function prototypes
+int findIndexByNumber(const Player players[], int count, int number);
+void addGameStats(Player players[], int *count);
+void printAllPlayers(const Player players[], int count);
+void findPlayer(const Player players[], int count);
+void showTeamSeasonStats(const Player players[], int count);
+void saveToFile(const Player players[], int count);
+void loadFromFile(Player players[], int *count);
+
+//Original menu prototypes
+static void main_menu(void);
+static void print_main_menu(void);
+static int  get_user_input(void);
+static void select_menu_item(int input);
+static void go_back_to_main(void);
+static int  is_integer(const char *s);
+
+//Main 
 int main(void)
 {
-    /* this will run forever until we call exit(0) in select_menu_item() */
-    for(;;) {
+    for(;;)
         main_menu();
-    }
-    /* not reached */
+
     return 0;
 }
 
+//Main Menu Controller 
 static void main_menu(void)
 {
     print_main_menu();
-    {
-        int input = get_user_input();
-        select_menu_item(input);
-    }
+    int input = get_user_input();
+    select_menu_item(input);
 }
 
+//Menu Input
 static int get_user_input(void)
 {
-    enum { MENU_ITEMS = 5 };   /* 1..4 = items, 5 = Exit */
+    enum { MENU_ITEMS = 7 }; 
     char buf[128];
     int valid_input = 0;
     int value = 0;
@@ -45,49 +71,52 @@ static int get_user_input(void)
     do {
         printf("\nSelect item: ");
         if (!fgets(buf, sizeof(buf), stdin)) {
-            /* EOF or error; bail out gracefully */
             puts("\nInput error. Exiting.");
             exit(1);
         }
-
-        // strip trailing newline
         buf[strcspn(buf, "\r\n")] = '\0';
 
         if (!is_integer(buf)) {
             printf("Enter an integer!\n");
-            valid_input = 0;
         } else {
             value = (int)strtol(buf, NULL, 10);
-            if (value >= 1 && value <= MENU_ITEMS) {
+            if (value >= 1 && value <= MENU_ITEMS)
                 valid_input = 1;
-            } else {
+            else
                 printf("Invalid menu item!\n");
-                valid_input = 0;
-            }
         }
     } while (!valid_input);
 
     return value;
 }
 
+ //Menu Dispatcher 
 static void select_menu_item(int input)
 {
     switch (input) {
         case 1:
-            menu_item_1();
-            go_back_to_main();
+            addGameStats(players, &playerCount);
+            go_back_to_main(); 
             break;
         case 2:
-            menu_item_2();
-            go_back_to_main();
+            printAllPlayers(players, playerCount);
+            go_back_to_main(); 
             break;
         case 3:
-            menu_item_3();
-            go_back_to_main();
+            findPlayer(players, playerCount);
+            go_back_to_main(); 
             break;
         case 4:
-            menu_item_4();
-            go_back_to_main();
+            showTeamSeasonStats(players, playerCount);
+            go_back_to_main(); 
+            break;
+        case 5:
+            saveToFile(players, playerCount);
+            go_back_to_main(); 
+            break;
+        case 6:
+            loadFromFile(players, &playerCount);
+            go_back_to_main(); 
             break;
         default:
             printf("Bye!\n");
@@ -95,20 +124,22 @@ static void select_menu_item(int input)
     }
 }
 
+//Menu Layout
 static void print_main_menu(void)
 {
-    printf("\n----------- Main menu -----------\n");
+    printf("\n----------- Basketball Stats System -----------\n");
     printf("\n"
-           "\t\t\t\t\t\t\n"
-           "\t1. Menu item 1\t\t\n"
-           "\t2. Menu item 2\t\t\n"
-           "\t3. Menu item 3\t\t\n"
-           "\t4. Menu item 4\t\t\n"
-           "\t5. Exit\t\t\t\t\n"
-           "\t\t\t\t\t\t\n");
+           " 1. Add Player Game Stats\n"
+           " 2. Show All Players\n"
+           " 3. Find Player by Jersey Number\n"
+           " 4. Show Team Season Stats\n"
+           " 5. Save to File\n"
+           " 6. Load from File\n"
+           " 7. Exit\n");
     printf("---------------------------------------------\n");
 }
 
+//Back to Menu
 static void go_back_to_main(void)
 {
     char buf[64];
@@ -118,24 +149,201 @@ static void go_back_to_main(void)
             puts("\nInput error. Exiting.");
             exit(1);
         }
-        buf[strcspn(buf, "\r\n")] = '\0'; /* strip newline */
+        buf[strcspn(buf, "\r\n")] = '\0';
     } while (!(buf[0] == 'b' || buf[0] == 'B') || buf[1] != '\0');
 }
 
-/* Return 1 if s is an optional [+/-] followed by one-or-more digits, else 0. */
+//Integer Check
 static int is_integer(const char *s)
 {
     if (!s || !*s) return 0;
-
-    /* optional sign */
     if (*s == '+' || *s == '-') s++;
-
-    /* must have at least one digit */
     if (!isdigit((unsigned char)*s)) return 0;
 
-    while (*s) {
-        if (!isdigit((unsigned char)*s)) return 0;
-        s++;
-    }
+    while (*s)
+        if (!isdigit((unsigned char)*s++))
+            return 0;
+
     return 1;
+}
+
+//Basketball Stats System
+ 
+int findIndexByNumber(const Player players[], int count, int number) {
+    for (int i = 0; i < count; i++)
+        if (players[i].number == number)
+            return i;
+    return -1;
+}
+
+void addGameStats(Player players[], int *count)
+{
+    int number;
+    printf("Enter jersey number: ");
+    scanf("%d", &number);
+
+    int index = findIndexByNumber(players, *count, number);
+
+    if (index == -1) {
+        if (*count >= MAX_PLAYERS) {
+            printf("Player limit reached.\n");
+            return;
+        }
+
+        Player p;
+        p.number = number;
+        p.games = 0;
+        p.totalPoints = p.totalRebounds = p.totalAssists = 0;
+        p.totalSteals = p.totalBlocks = 0;
+
+        printf("Enter name: ");
+        scanf("%s", p.name);
+
+        int pts, reb, ast, stl, blk;
+        printf("Enter PTS REB AST STL BLK: ");
+        scanf("%d %d %d %d %d", &pts, &reb, &ast, &stl, &blk);
+
+        p.games = 1;
+        p.totalPoints = pts;
+        p.totalRebounds = reb;
+        p.totalAssists = ast;
+        p.totalSteals = stl;
+        p.totalBlocks = blk;
+
+        players[*count] = p;
+        (*count)++;
+
+        printf("Player added.\n");
+    }
+    else {
+        Player *p = &players[index];
+        int pts, reb, ast, stl, blk;
+
+        printf("Enter PTS REB AST STL BLK: ");
+        scanf("%d %d %d %d %d", &pts, &reb, &ast, &stl, &blk);
+
+        p->games++;
+        p->totalPoints += pts;
+        p->totalRebounds += reb;
+        p->totalAssists += ast;
+        p->totalSteals += stl;
+        p->totalBlocks += blk;
+
+        printf("Stats updated.\n");
+    }
+}
+
+void printAllPlayers(const Player players[], int count)
+{
+    if (count == 0) {
+        printf("No players.\n");
+        return;
+    }
+
+    for (int i = 0; i < count; i++) {
+        const Player *p = &players[i];
+        printf("\n#%d %s - Games: %d\n", p->number, p->name, p->games);
+        printf("Totals  PTS:%d REB:%d AST:%d STL:%d BLK:%d\n",
+               p->totalPoints, p->totalRebounds, p->totalAssists,
+               p->totalSteals, p->totalBlocks);
+    }
+}
+
+void findPlayer(const Player players[], int count)
+{
+    int number;
+    printf("Enter jersey number: ");
+    scanf("%d", &number);
+
+    int index = findIndexByNumber(players, count, number);
+    if (index == -1) {
+        printf("Player not found.\n");
+        return;
+    }
+
+    const Player *p = &players[index];
+    printf("\n#%d %s - Games: %d\n", p->number, p->name, p->games);
+    printf("Totals  PTS:%d REB:%d AST:%d STL:%d BLK:%d\n",
+           p->totalPoints, p->totalRebounds, p->totalAssists,
+           p->totalSteals, p->totalBlocks);
+}
+
+void showTeamSeasonStats(const Player players[], int count)
+{
+    if (count == 0) {
+        printf("No players.\n");
+        return;
+    }
+
+    int gp=0, pts=0, reb=0, ast=0, stl=0, blk=0;
+
+    for (int i = 0; i < count; i++) {
+        gp  += players[i].games;
+        pts += players[i].totalPoints;
+        reb += players[i].totalRebounds;
+        ast += players[i].totalAssists;
+        stl += players[i].totalSteals;
+        blk += players[i].totalBlocks;
+    }
+
+    printf("\n===== Team Stats =====\n");
+    printf("Players: %d\n", count);
+    printf("Total games: %d\n", gp);
+    printf("Totals PTS:%d REB:%d AST:%d STL:%d BLK:%d\n",
+            pts, reb, ast, stl, blk);
+}
+
+void saveToFile(const Player players[], int count)
+{
+    char filename[100];
+    printf("Filename: ");
+    scanf("%s", filename);
+
+    FILE *fp = fopen(filename, "w");
+    if (!fp) {
+        printf("Error opening file.\n");
+        return;
+    }
+
+    fprintf(fp, "%d\n", count);
+    for (int i = 0; i < count; i++) {
+        const Player *p = &players[i];
+        fprintf(fp, "%d %s %d %d %d %d %d %d\n",
+                p->number, p->name, p->games,
+                p->totalPoints, p->totalRebounds, p->totalAssists,
+                p->totalSteals, p->totalBlocks);
+    }
+    fclose(fp);
+    printf("Saved.\n");
+}
+
+void loadFromFile(Player players[], int *count)
+{
+    char filename[100];
+    printf("Filename: ");
+    scanf("%s", filename);
+
+    FILE *fp = fopen(filename, "r");
+    if (!fp) {
+        printf("Error opening.\n");
+        return;
+    }
+
+    int n;
+    fscanf(fp, "%d", &n);
+
+    for (int i = 0; i < n; i++) {
+        Player p;
+        fscanf(fp, "%d %s %d %d %d %d %d %d",
+               &p.number, p.name, &p.games,
+               &p.totalPoints, &p.totalRebounds, &p.totalAssists,
+               &p.totalSteals, &p.totalBlocks);
+
+        players[i] = p;
+    }
+
+    *count = n;
+    fclose(fp);
+
+    printf("Loaded %d players.\n", *count);
 }
