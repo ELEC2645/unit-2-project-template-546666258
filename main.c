@@ -6,7 +6,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#include "funcs.h"
+// #include "funcs.h"  
 
 //Basketball System Includes
 #define MAX_PLAYERS 20
@@ -25,6 +25,14 @@ typedef struct {
 
 Player players[MAX_PLAYERS];
 int playerCount = 0;
+
+
+static void clear_input_buffer(void)
+{
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF)
+        ;
+}
 
 //Basketball function prototypes
 int findIndexByNumber(const Player players[], int count, int number);
@@ -168,7 +176,6 @@ static int is_integer(const char *s)
 }
 
 //Basketball Stats System
- 
 int findIndexByNumber(const Player players[], int count, int number) {
     for (int i = 0; i < count; i++)
         if (players[i].number == number)
@@ -180,13 +187,18 @@ void addGameStats(Player players[], int *count)
 {
     int number;
     printf("Enter jersey number: ");
-    scanf("%d", &number);
+    if (scanf("%d", &number) != 1) {
+        printf("Invalid input.\n");
+        clear_input_buffer();
+        return;
+    }
 
     int index = findIndexByNumber(players, *count, number);
 
     if (index == -1) {
         if (*count >= MAX_PLAYERS) {
             printf("Player limit reached.\n");
+            clear_input_buffer();
             return;
         }
 
@@ -197,11 +209,19 @@ void addGameStats(Player players[], int *count)
         p.totalSteals = p.totalBlocks = 0;
 
         printf("Enter name: ");
-        scanf("%s", p.name);
+        if (scanf("%49s", p.name) != 1) {
+            printf("Invalid name.\n");
+            clear_input_buffer();
+            return;
+        }
 
         int pts, reb, ast, stl, blk;
         printf("Enter PTS REB AST STL BLK: ");
-        scanf("%d %d %d %d %d", &pts, &reb, &ast, &stl, &blk);
+        if (scanf("%d %d %d %d %d", &pts, &reb, &ast, &stl, &blk) != 5) {
+            printf("Invalid stats.\n");
+            clear_input_buffer();
+            return;
+        }
 
         p.games = 1;
         p.totalPoints = pts;
@@ -220,7 +240,11 @@ void addGameStats(Player players[], int *count)
         int pts, reb, ast, stl, blk;
 
         printf("Enter PTS REB AST STL BLK: ");
-        scanf("%d %d %d %d %d", &pts, &reb, &ast, &stl, &blk);
+        if (scanf("%d %d %d %d %d", &pts, &reb, &ast, &stl, &blk) != 5) {
+            printf("Invalid stats.\n");
+            clear_input_buffer();
+            return;
+        }
 
         p->games++;
         p->totalPoints += pts;
@@ -231,6 +255,8 @@ void addGameStats(Player players[], int *count)
 
         printf("Stats updated.\n");
     }
+
+    clear_input_buffer();
 }
 
 void printAllPlayers(const Player players[], int count)
@@ -253,7 +279,12 @@ void findPlayer(const Player players[], int count)
 {
     int number;
     printf("Enter jersey number: ");
-    scanf("%d", &number);
+    if (scanf("%d", &number) != 1) {
+        printf("Invalid input.\n");
+        clear_input_buffer();
+        return;
+    }
+    clear_input_buffer();
 
     int index = findIndexByNumber(players, count, number);
     if (index == -1) {
@@ -288,7 +319,7 @@ void showTeamSeasonStats(const Player players[], int count)
 
     printf("\n===== Team Stats =====\n");
     printf("Players: %d\n", count);
-    printf("Total games: %d\n", gp);
+    printf("Total games (sum of player games): %d\n", gp);
     printf("Totals PTS:%d REB:%d AST:%d STL:%d BLK:%d\n",
             pts, reb, ast, stl, blk);
 }
@@ -297,7 +328,12 @@ void saveToFile(const Player players[], int count)
 {
     char filename[100];
     printf("Filename: ");
-    scanf("%s", filename);
+    if (scanf("%99s", filename) != 1) {
+        printf("Invalid filename.\n");
+        clear_input_buffer();
+        return;
+    }
+    clear_input_buffer();
 
     FILE *fp = fopen(filename, "w");
     if (!fp) {
@@ -321,7 +357,12 @@ void loadFromFile(Player players[], int *count)
 {
     char filename[100];
     printf("Filename: ");
-    scanf("%s", filename);
+    if (scanf("%99s", filename) != 1) {
+        printf("Invalid filename.\n");
+        clear_input_buffer();
+        return;
+    }
+    clear_input_buffer();
 
     FILE *fp = fopen(filename, "r");
     if (!fp) {
@@ -330,14 +371,27 @@ void loadFromFile(Player players[], int *count)
     }
 
     int n;
-    fscanf(fp, "%d", &n);
+    if (fscanf(fp, "%d", &n) != 1) {
+        printf("File format error.\n");
+        fclose(fp);
+        return;
+    }
+
+    if (n > MAX_PLAYERS) {
+        printf("File has %d players, but max supported is %d. Truncating.\n", n, MAX_PLAYERS);
+        n = MAX_PLAYERS;
+    }
 
     for (int i = 0; i < n; i++) {
         Player p;
-        fscanf(fp, "%d %s %d %d %d %d %d %d",
+        if (fscanf(fp, "%d %49s %d %d %d %d %d %d",
                &p.number, p.name, &p.games,
                &p.totalPoints, &p.totalRebounds, &p.totalAssists,
-               &p.totalSteals, &p.totalBlocks);
+               &p.totalSteals, &p.totalBlocks) != 8) {
+            printf("File format error while reading player %d.\n", i + 1);
+            fclose(fp);
+            return;
+        }
 
         players[i] = p;
     }
@@ -347,3 +401,4 @@ void loadFromFile(Player players[], int *count)
 
     printf("Loaded %d players.\n", *count);
 }
+
